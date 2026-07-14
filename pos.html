@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS 團隊業績填報與走勢系統 - 雲端協作版</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel Standalone CDN -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Recharts CDN Requirements -->
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+        }
+        /* 美化滾動條 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 antialiased">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect, useRef } = React;
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, ComposedChart, Area } = window.Recharts;
+
+        // 內置 SVG 圖標模組，避免任何外部 CDN 圖標讀取失敗
+        const Icons = {
+            TrendingUp: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>,
+            Award: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>,
+            Briefcase: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>,
+            AlertTriangle: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
+            PlusCircle: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+            Clock: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+            Trash2: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
+            Users: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
+            UserPlus: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>,
+            ClipboardList: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>,
+            Database: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>,
+            CheckCircle2: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+            HelpCircle: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        };
+
+        const DEFAULT_MEMBERS = ['小明', '雅婷', '志豪', '美玲'];
+
+        const DEFAULT_ENTRIES = [
+            { id: 1, name: '小明', week: '7月 W1 (07/01 - 07/05)', install: 3, nextInstall: 2, pending: 5, kpi: 4, cumulativeKpi: 3, totalDeals: 3, support: '需要主管陪同二訪議價' },
+            { id: 2, name: '雅婷', week: '7月 W1 (07/01 - 07/05)', install: 4, nextInstall: 5, pending: 3, kpi: 4, cumulativeKpi: 4, totalDeals: 4, support: '無' },
+            { id: 3, name: '志豪', week: '7月 W1 (07/01 - 07/05)', install: 2, nextInstall: 3, pending: 6, kpi: 4, cumulativeKpi: 2, totalDeals: 2, support: '申請特案價格授權' },
+            { id: 4, name: '美玲', week: '7月 W1 (07/01 - 07/05)', install: 5, nextInstall: 4, pending: 2, kpi: 4, cumulativeKpi: 5, totalDeals: 5, support: '協調工程延後裝機' },
+            { id: 5, name: '小明', week: '7月 W2 (07/06 - 07/12)', install: 4, nextInstall: 3, pending: 4, kpi: 4, cumulativeKpi: 7, totalDeals: 7, support: '無' },
+            { id: 6, name: '雅婷', week: '7月 W2 (07/06 - 07/12)', install: 5, nextInstall: 4, pending: 2, kpi: 4, cumulativeKpi: 9, totalDeals: 9, support: '無' },
+            { id: 7, name: '志豪', week: '7月 W2 (07/06 - 07/12)', install: 3, nextInstall: 4, pending: 5, kpi: 4, cumulativeKpi: 5, totalDeals: 5, support: '需要工程支援廚房連線問題' },
+            { id: 8, name: '美玲', week: '7月 W2 (07/06 - 07/12)', install: 4, nextInstall: 5, pending: 3, kpi: 4, cumulativeKpi: 9, totalDeals: 9, support: '無' },
+        ];
+
+        // 2026 年日曆演算法：智慧精算出每週一至週日區間
+        const getWeeksForMonth2026 = (monthStr) => {
+            const m = parseInt(monthStr, 10);
+            if (isNaN(m)) return [];
+            const year = 2026;
+            
+            const firstDay = new Date(year, m - 1, 1);
+            const lastDay = new Date(year, m, 0);
+            const totalDays = lastDay.getDate();
+            
+            let weeks = [];
+            let currentStart = 1;
+            let weekNum = 1;
+            
+            let firstDayOfWeek = firstDay.getDay(); 
+            let firstDayAdjusted = firstDayOfWeek === 0 ? 7 : firstDayOfWeek;
+            
+            let daysInFirstWeek = 8 - firstDayAdjusted;
+            let firstWeekEnd = Math.min(daysInFirstWeek, totalDays);
+            
+            const formatDay = (day) => String(day).padStart(2, '0');
+            const formatMonth = (month) => String(month).padStart(2, '0');
+            
+            weeks.push({
+                id: `W${weekNum}`,
+                label: `W1 (${formatMonth(m)}/${formatDay(currentStart)} - ${formatMonth(m)}/${formatDay(firstWeekEnd)})`
+            });
+            
+            currentStart = firstWeekEnd + 1;
+            weekNum++;
+            
+            while (currentStart <= totalDays) {
+                let currentEnd = Math.min(currentStart + 6, totalDays);
+                weeks.push({
+                    id: `W${weekNum}`,
+                    label: `W${weekNum} (${formatMonth(m)}/${formatDay(currentStart)} - ${formatMonth(m)}/${formatDay(currentEnd)})`
+                });
+                currentStart = currentEnd + 1;
+                weekNum++;
+            }
+            return weeks;
+        };
+
+        const App = () => {
+            const [entries, setEntries] = useState(() => {
+                const saved = localStorage.getItem('pos_entries_v4');
+                return saved ? JSON.parse(saved) : DEFAULT_ENTRIES;
+            });
+
+            const [members, setMembers] = useState(() => {
+                const saved = localStorage.getItem('pos_members_v4');
+                return saved ? JSON.parse(saved) : DEFAULT_MEMBERS;
+            });
+
+            // 雲端協作同步模組狀態
+            const [isCloudMode, setIsCloudMode] = useState(() => {
+                return localStorage.getItem('pos_cloud_mode') === 'true';
+            });
+            const [firebaseUrl, setFirebaseUrl] = useState(() => {
+                return localStorage.getItem('pos_firebase_url') || '';
+            });
+            const [groupKey, setGroupKey] = useState(() => {
+                return localStorage.getItem('pos_group_key') || 'sales_team_alpha';
+            });
+            const [lastSynced, setLastSynced] = useState(null);
+
+            const [newMemberName, setNewMemberName] = useState('');
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [selectedMemberFilter, setSelectedMemberFilter] = useState('All');
+            
+            const [selectedMonth, setSelectedMonth] = useState('7月');
+            const [selectedWeek, setSelectedWeek] = useState('W1');
+            const [isCustomWeek, setIsCustomWeek] = useState(false);
+            const [customWeekText, setCustomWeekText] = useState('');
+
+            const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+            const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+            const [formData, setFormData] = useState({
+                name: '小明',
+                install: '',
+                nextInstall: '',
+                pending: '',
+                kpi: '4',
+                cumulativeKpi: '',
+                totalDeals: '',
+                support: ''
+            });
+
+            // 根據所選月份，重新精算週別名稱與實際範圍
+            const weekOptions = useMemo(() => {
+                return getWeeksForMonth2026(selectedMonth);
+            }, [selectedMonth]);
+
+            useEffect(() => {
+                if (weekOptions.length > 0) {
+                    const exists = weekOptions.some(w => w.id === selectedWeek);
+                    if (!exists) {
+                        setSelectedWeek(weekOptions[0].id);
+                    }
+                }
+            }, [selectedMonth, weekOptions, selectedWeek]);
+
+            // 保存本地雲端組態
+            useEffect(() => {
+                localStorage.setItem('pos_cloud_mode', isCloudMode);
+                localStorage.setItem('pos_firebase_url', firebaseUrl);
+                localStorage.setItem('pos_group_key', groupKey);
+            }, [isCloudMode, firebaseUrl, groupKey]);
+
+            // 單機本地保存
+            useEffect(() => {
+                if (!isCloudMode) {
+                    localStorage.setItem('pos_entries_v4', JSON.stringify(entries));
+                }
+            }, [entries, isCloudMode]);
+
+            useEffect(() => {
+                if (!isCloudMode) {
+                    localStorage.setItem('pos_members_v4', JSON.stringify(members));
+                }
+            }, [members, isCloudMode]);
+
+            // 自雲端抓取最新資料
+            const syncFromCloud = async () => {
+                if (!isCloudMode || !firebaseUrl) return;
+                try {
+                    const cleanUrl = firebaseUrl.replace(/\/$/, "");
+                    const res = await fetch(`${cleanUrl}/pos_weekly/${groupKey}.json`);
+                    if (!res.ok) throw new Error('連線失敗');
+                    const data = await res.json();
+                    
+                    if (data) {
+                        if (data.entries) {
+                            const sortedEntries = Object.values(data.entries).sort((a, b) => b.id - a.id);
+                            setEntries(sortedEntries);
+                        } else {
+                            setEntries([]);
+                        }
+                        if (data.members) {
+                            setMembers(Object.values(data.members));
+                        }
+                    } else {
+                        // 初始化資料庫
+                        await syncToCloud(entries, members);
+                    }
+                    setLastSynced(new Date().toLocaleTimeString());
+                } catch (err) {
+                    console.error(err);
+                    triggerToast('雲端同步失敗，請確認 Firebase 資料庫網址是否正確。', 'error');
+                }
+            };
+
+            // 推送更新至雲端
+            const syncToCloud = async (updatedEntries, updatedMembers) => {
+                if (!isCloudMode || !firebaseUrl) return;
+                try {
+                    const cleanUrl = firebaseUrl.replace(/\/$/, "");
+                    await fetch(`${cleanUrl}/pos_weekly/${groupKey}/entries.json`, {
+                        method: 'PUT',
+                        body: JSON.stringify(updatedEntries)
+                    });
+                    await fetch(`${cleanUrl}/pos_weekly/${groupKey}/members.json`, {
+                        method: 'PUT',
+                        body: JSON.stringify(updatedMembers)
+                    });
+                    setLastSynced(new Date().toLocaleTimeString());
+                } catch (err) {
+                    console.error(err);
+                    triggerToast('儲存至雲端失敗。', 'error');
+                }
+            };
+
+            // 輪詢監聽 (每 8 秒自動獲取新填報，實現無縫共同編輯)
+            useEffect(() => {
+                if (isCloudMode && firebaseUrl) {
+                    syncFromCloud();
+                    const interval = setInterval(syncFromCloud, 8000);
+                    return () => clearInterval(interval);
+                }
+            }, [isCloudMode, firebaseUrl, groupKey]);
+
+            const triggerToast = (message, type = 'success') => {
+                setToast({ show: true, message, type });
+                setTimeout(() => {
+                    setToast({ show: false, message: '', type: 'success' });
+                }, 4000);
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!formData.name) {
+                    triggerToast('請選擇或填寫業務姓名！', 'error');
+                    return;
+                }
+
+                let finalWeek = '';
+                if (isCustomWeek) {
+                    finalWeek = customWeekText.trim() || '未填日期';
+                } else {
+                    const activeWeekObj = weekOptions.find(w => w.id === selectedWeek);
+                    const weekLabel = activeWeekObj ? activeWeekObj.label : selectedWeek;
+                    finalWeek = `${selectedMonth} ${weekLabel}`;
+                }
+
+                const newEntry = {
+                    id: Date.now(),
+                    name: formData.name,
+                    week: finalWeek,
+                    install: parseInt(formData.install || 0, 10),
+                    nextInstall: parseInt(formData.nextInstall || 0, 10),
+                    pending: parseInt(formData.pending || 0, 10),
+                    kpi: parseInt(formData.kpi || 0, 10),
+                    cumulativeKpi: parseInt(formData.cumulativeKpi || 0, 10),
+                    totalDeals: parseInt(formData.totalDeals || 0, 10),
+                    support: formData.support || '無'
+                };
+
+                const nextEntries = [newEntry, ...entries];
+                setEntries(nextEntries);
+                triggerToast(`🎉 已成功送出 ${formData.name} 在 [${finalWeek}] 的數據！`);
+
+                if (isCloudMode) {
+                    await syncToCloud(nextEntries, members);
+                }
+                
+                setFormData({
+                    ...formData,
+                    install: '',
+                    nextInstall: '',
+                    pending: '',
+                    cumulativeKpi: '',
+                    totalDeals: '',
+                    support: ''
+                });
+            };
+
+            const handleAddMember = async (e) => {
+                e.preventDefault();
+                if (!newMemberName.trim()) return;
+                if (members.includes(newMemberName.trim())) {
+                    triggerToast('該組員已存在！', 'error');
+                    return;
+                }
+                const nextMembers = [...members, newMemberName.trim()];
+                setMembers(nextMembers);
+                setFormData({ ...formData, name: newMemberName.trim() });
+                setNewMemberName('');
+                triggerToast(`新增組員 「${newMemberName}」 成功`);
+
+                if (isCloudMode) {
+                    await syncToCloud(entries, nextMembers);
+                }
+            };
+
+            const handleDeleteMember = async (nameToDelete) => {
+                const nextMembers = members.filter(m => m !== nameToDelete);
+                setMembers(nextMembers);
+                triggerToast(`已移除組員 「${nameToDelete}」`, 'warning');
+
+                if (isCloudMode) {
+                    await syncToCloud(entries, nextMembers);
+                }
+            };
+
+            const handleDeleteEntry = async (id) => {
+                const nextEntries = entries.filter(e => e.id !== id);
+                setEntries(nextEntries);
+                triggerToast('已刪除該筆歷史週報數據', 'warning');
+
+                if (isCloudMode) {
+                    await syncToCloud(nextEntries, members);
+                }
+            };
+
+            const handleResetData = async () => {
+                setEntries(DEFAULT_ENTRIES);
+                setMembers(DEFAULT_MEMBERS);
+                setShowResetConfirm(false);
+                triggerToast('數據已還原至預設範例！');
+
+                if (isCloudMode) {
+                    await syncToCloud(DEFAULT_ENTRIES, DEFAULT_MEMBERS);
+                }
+            };
+
+            const summaryMetrics = useMemo(() => {
+                const totalInstalls = entries.reduce((acc, curr) => acc + (curr.install || 0), 0);
+                const totalDeals = entries.reduce((acc, curr) => acc + (curr.totalDeals || 0), 0);
+                
+                // 計算每個業務的最新水庫量，累加不重複
+                const latestPendingByMember = {};
+                entries.forEach(e => {
+                    if (!latestPendingByMember[e.name]) {
+                        latestPendingByMember[e.name] = e.pending || 0;
+                    }
+                });
+                const totalPending = Object.values(latestPendingByMember).reduce((acc, curr) => acc + curr, 0);
+                const activeSupports = entries.filter(e => e.support && e.support !== '無').length;
+
+                return { totalInstalls, totalDeals, totalPending, activeSupports };
+            }, [entries]);
+
+            const chartData = useMemo(() => {
+                const grouped = {};
+                const filteredEntries = selectedMemberFilter === 'All' 
+                    ? entries 
+                    : entries.filter(e => e.name === selectedMemberFilter);
+
+                filteredEntries.forEach(e => {
+                    if (!grouped[e.week]) {
+                        grouped[e.week] = {
+                            week: e.week,
+                            install: 0,
+                            nextInstall: 0,
+                            pending: 0,
+                            totalDeals: 0,
+                            kpi: 0,
+                            count: 0
+                        };
+                    }
+                    grouped[e.week].install += e.install || 0;
+                    grouped[e.week].nextInstall += e.nextInstall || 0;
+                    grouped[e.week].pending += e.pending || 0;
+                    grouped[e.week].totalDeals += e.totalDeals || 0;
+                    grouped[e.week].kpi += e.kpi || 0;
+                    grouped[e.week].count += 1;
+                });
+
+                return Object.values(grouped).sort((a, b) => {
+                    const parseWeek = (w) => {
+                        const match = w.match(/(\d+)月\s+W(\d+)/);
+                        if (match) {
+                            return parseInt(match[1], 10) * 10 + parseInt(match[2], 10);
+                        }
+                        return 999;
+                    };
+                    return parseWeek(a.week) - parseWeek(b.week);
+                });
+            }, [entries, selectedMemberFilter]);
+
+            const memberPerformanceData = useMemo(() => {
+                if (entries.length === 0) return [];
+                const latestWeek = entries[0].week;
+                const weekEntries = entries.filter(e => e.week === latestWeek);
+                
+                return weekEntries.map(e => ({
+                    name: e.name,
+                    '實際裝機': e.install,
+                    '當週KPI': e.kpi,
+                    '累計成交': e.totalDeals
+                }));
+            }, [entries]);
+
+            return (
+                <div className="p-4 md:p-8 max-w-7xl mx-auto">
+                    
+                    {/* 自訂通知視窗 (Toast) */}
+                    {toast.show && (
+                        <div className={`fixed bottom-5 right-5 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg border text-white transition-all transform scale-100 duration-300 ${
+                            toast.type === 'error' ? 'bg-rose-600 border-rose-500' : 
+                            toast.type === 'warning' ? 'bg-amber-500 border-amber-400' : 'bg-emerald-600 border-emerald-500'
+                        }`}>
+                            <Icons.CheckCircle2 />
+                            <span className="font-semibold text-sm">{toast.message}</span>
+                        </div>
+                    )}
+
+                    {/* 自訂對話框 (Reset Confirmation Modal) */}
+                    {showResetConfirm && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl border border-slate-100">
+                                <h3 className="text-lg font-bold text-slate-900 mb-2">確認要還原範例數據嗎？</h3>
+                                <p className="text-slate-500 text-sm mb-6">
+                                    此操作將覆蓋您目前的所有資料（若開啟雲端也會一併重置），並還原至預設的週報示範資料。
+                                </p>
+                                <div className="flex justify-end gap-3">
+                                    <button 
+                                        onClick={() => setShowResetConfirm(false)}
+                                        className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition text-sm font-medium"
+                                    >
+                                        取消
+                                    </button>
+                                    <button 
+                                        onClick={handleResetData}
+                                        className="px-4 py-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition text-sm font-bold shadow-md"
+                                    >
+                                        確認還原
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 頂部標題列 */}
+                    <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="px-3 py-1 bg-indigo-100 text-indigo-800 text-xs font-semibold rounded-full uppercase tracking-wider">
+                                    POS Direct Sales Dept
+                                </span>
+                                {isCloudMode ? (
+                                    <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full flex items-center gap-1">
+                                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
+                                        雲端協作同步中 {lastSynced && `(${lastSynced})`}
+                                    </span>
+                                ) : (
+                                    <span className="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full">
+                                        本機單機模式
+                                    </span>
+                                )}
+                            </div>
+                            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">POS 團隊業績填報與走勢系統</h1>
+                            <p className="text-slate-500 text-sm mt-1">
+                                供組員在週會前填寫實績。支援真實日期智慧切換、主管同步監控、歷史回溯補登。
+                            </p>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                            <button 
+                                onClick={() => setShowResetConfirm(true)}
+                                className="px-4 py-2 text-xs border border-slate-300 rounded-lg text-slate-600 bg-white hover:bg-slate-50 transition font-medium shadow-sm"
+                            >
+                                重置範例數據
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* 關鍵指標看盤區 */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+                            <div>
+                                <span className="text-xs font-semibold text-slate-400 block mb-1 uppercase tracking-wider">歷史累計裝機量</span>
+                                <span className="text-3xl font-bold text-slate-900">{summaryMetrics.totalInstalls}</span>
+                                <span className="text-xs text-emerald-600 font-medium block mt-1">↑ 持續累積中</span>
+                            </div>
+                            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                                <Icons.TrendingUp />
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+                            <div>
+                                <span className="text-xs font-semibold text-slate-400 block mb-1 uppercase tracking-wider">歷史累計簽約成交</span>
+                                <span className="text-3xl font-bold text-slate-900">{summaryMetrics.totalDeals} <span className="text-sm font-normal text-slate-500">間</span></span>
+                                <span className="text-xs text-blue-600 font-medium block mt-1">團隊本月總能量</span>
+                            </div>
+                            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                                <Icons.Award />
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+                            <div>
+                                <span className="text-xs font-semibold text-slate-400 block mb-1 uppercase tracking-wider">簽約待安裝水庫</span>
+                                <span className="text-3xl font-bold text-slate-900">{summaryMetrics.totalPending} <span className="text-sm font-normal text-slate-500">間</span></span>
+                                <span className="text-xs text-amber-600 font-medium block mt-1">已簽未裝機存量</span>
+                            </div>
+                            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                                <Icons.Briefcase />
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+                            <div>
+                                <span className="text-xs font-semibold text-slate-400 block mb-1 uppercase tracking-wider">待協調支援事項</span>
+                                <span className="text-3xl font-bold text-rose-600">{summaryMetrics.activeSupports} <span className="text-sm font-normal text-slate-500">案</span></span>
+                                <span className="text-xs text-rose-500 font-medium block mt-1">🚨 本週需要主管協助</span>
+                            </div>
+                            <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
+                                <Icons.AlertTriangle />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        
+                        {/* 左側：數據填報卡片 */}
+                        <div className="lg:col-span-4 space-y-6">
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                                <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2 pb-3 border-b border-slate-100">
+                                    <Icons.PlusCircle /> 
+                                    <span>業務數據填報與補登</span>
+                                </h2>
+                                
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">填報組員姓名</label>
+                                        <select 
+                                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                        >
+                                            {members.map(member => (
+                                                <option key={member} value={member}>{member}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* 歷史時間與智慧週別聯動選擇器 */}
+                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold text-slate-600 flex items-center gap-1">
+                                                <Icons.Clock />
+                                                選擇填報週期
+                                            </span>
+                                            <label className="flex items-center gap-1 cursor-pointer text-xs font-semibold text-blue-600 hover:text-blue-700">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                    checked={isCustomWeek}
+                                                    onChange={(e) => setIsCustomWeek(e.target.checked)}
+                                                />
+                                                <span>自訂時間區間</span>
+                                            </label>
+                                        </div>
+
+                                        {!isCustomWeek ? (
+                                            <div className="grid grid-cols-1 gap-2.5">
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 mb-1">選擇月份 (補登選過往)</label>
+                                                    <select 
+                                                        className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:outline-none"
+                                                        value={selectedMonth}
+                                                        onChange={(e) => setSelectedMonth(e.target.value)}
+                                                    >
+                                                        <option value="7月">7月 (本月)</option>
+                                                        <option value="6月">6月 (過往)</option>
+                                                        <option value="5月">5月 (過往)</option>
+                                                        <option value="4月">4月 (過往)</option>
+                                                        <option value="3月">3月 (過往)</option>
+                                                        <option value="2月">2月 (過往)</option>
+                                                        <option value="1月">1月 (過往)</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 mb-1">選擇週別 (系統精準計算真實日期)</label>
+                                                    <select 
+                                                        className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                                                        value={selectedWeek}
+                                                        onChange={(e) => setSelectedWeek(e.target.value)}
+                                                    >
+                                                        {weekOptions.map((opt) => (
+                                                            <option key={opt.id} value={opt.id}>
+                                                                {opt.label}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 mb-1">輸入自訂區間 (例：2026-Q1 或 12/25-12/31)</label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="例如：2025Q4 或 12/25-12/31"
+                                                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                                    value={customWeekText}
+                                                    onChange={(e) => setCustomWeekText(e.target.value)}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 核心實績與目標數據輸入欄 */}
+                                    <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100/60 space-y-3">
+                                        <span className="text-xs font-bold text-blue-800 block">📊 業績與裝機數據 (單位：間數)</span>
+                                        
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">本週裝機 (實績)</label>
+                                                <input 
+                                                    type="number" 
+                                                    placeholder="0"
+                                                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                                    value={formData.install}
+                                                    onChange={(e) => setFormData({...formData, install: e.target.value})}
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">下週預計裝機</label>
+                                                <input 
+                                                    type="number" 
+                                                    placeholder="0"
+                                                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                                    value={formData.nextInstall}
+                                                    onChange={(e) => setFormData({...formData, nextInstall: e.target.value})}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">未安裝庫存量 (水庫)</label>
+                                                <input 
+                                                    type="number" 
+                                                    placeholder="0"
+                                                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                                    value={formData.pending}
+                                                    onChange={(e) => setFormData({...formData, pending: e.target.value})}
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">當週 KPI 目標</label>
+                                                <input 
+                                                    type="number" 
+                                                    placeholder="4"
+                                                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                                    value={formData.kpi}
+                                                    onChange={(e) => setFormData({...formData, kpi: e.target.value})}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">累積已達成KPI</label>
+                                                <input 
+                                                    type="number" 
+                                                    placeholder="累積成交數"
+                                                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                                    value={formData.cumulativeKpi}
+                                                    onChange={(e) => setFormData({...formData, cumulativeKpi: e.target.value})}
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">本月累計總成交</label>
+                                                <input 
+                                                    type="number" 
+                                                    placeholder="總合數"
+                                                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                                    value={formData.totalDeals}
+                                                    onChange={(e) => setFormData({...formData, totalDeals: e.target.value})}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 備註卡關與協助 */}
+                                    <div className="space-y-2">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase">💡 需要主管支援或跨部門協調 (非必填)</label>
+                                        <textarea 
+                                            rows="3"
+                                            placeholder="例：需要主管陪同出面議價 / 特殊POS硬體機型需要工程端協作..."
+                                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            value={formData.support}
+                                            onChange={(e) => setFormData({...formData, support: e.target.value})}
+                                        ></textarea>
+                                    </div>
+
+                                    <button 
+                                        type="submit" 
+                                        className="w-full bg-indigo-600 text-white py-3 rounded-xl hover:bg-indigo-700 transition font-bold text-sm shadow-md shadow-indigo-200"
+                                    >
+                                        確認並提交至週會看板
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        {/* 右側：走勢圖表與大盤管理 (分頁控制) */}
+                        <div className="lg:col-span-8 space-y-6">
+                            
+                            {/* 分頁 Tab */}
+                            <div className="bg-white p-1.5 rounded-xl shadow-sm border border-slate-200/80 flex flex-wrap gap-1">
+                                <button
+                                    onClick={() => setActiveTab('dashboard')}
+                                    className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition ${
+                                        activeTab === 'dashboard' 
+                                            ? 'bg-slate-900 text-white shadow-sm' 
+                                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                    }`}
+                                >
+                                    <Icons.TrendingUp />
+                                    歷史數據走勢圖
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('dataTable')}
+                                    className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition ${
+                                        activeTab === 'dataTable' 
+                                            ? 'bg-slate-900 text-white shadow-sm' 
+                                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                    }`}
+                                >
+                                    <Icons.ClipboardList />
+                                    全隊數據明細 ({entries.length})
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('supportBoard')}
+                                    className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition relative ${
+                                        activeTab === 'supportBoard' 
+                                            ? 'bg-slate-900 text-white shadow-sm' 
+                                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                    }`}
+                                >
+                                    <Icons.AlertTriangle />
+                                    主管支援板
+                                    {summaryMetrics.activeSupports > 0 && (
+                                        <span className="absolute top-1.5 right-2 w-2.5 h-2.5 bg-rose-500 rounded-full animate-pulse"></span>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('memberMgmt')}
+                                    className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition ${
+                                        activeTab === 'memberMgmt' 
+                                            ? 'bg-slate-900 text-white shadow-sm' 
+                                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                    }`}
+                                >
+                                    <Icons.Users />
+                                    成員管理
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('cloudSettings')}
+                                    className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition ${
+                                        activeTab === 'cloudSettings' 
+                                            ? 'bg-slate-900 text-white shadow-sm' 
+                                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                    }`}
+                                >
+                                    <Icons.Database />
+                                    雲端協作設定
+                                </button>
+                            </div>
+
+                            {/* 走勢分析圖表分頁 */}
+                            {activeTab === 'dashboard' && (
+                                <div className="space-y-6">
+                                    
+                                    {/* 裝機與庫存綜合趨勢走勢圖 */}
+                                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                                            <div>
+                                                <h3 className="text-lg font-bold text-slate-900">業績走勢趨勢圖 (動態歷史彙整)</h3>
+                                                <p className="text-xs text-slate-500">檢視團隊或個人在不同月份及週別的數據演進</p>
+                                            </div>
+                                            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                                                <span className="text-xs font-semibold text-slate-500 px-2">篩選組員:</span>
+                                                <select
+                                                    className="text-xs bg-white border border-slate-200 rounded p-1 font-medium focus:outline-none"
+                                                    value={selectedMemberFilter}
+                                                    onChange={(e) => setSelectedMemberFilter(e.target.value)}
+                                                >
+                                                    <option value="All">顯示全隊 (加總)</option>
+                                                    {members.map(m => (
+                                                        <option key={m} value={m}>{m}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="h-80 w-full">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <ComposedChart data={chartData}>
+                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                                    <XAxis dataKey="week" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                                                    <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} />
+                                                    <Tooltip 
+                                                        contentStyle={{ backgroundColor: '#1e293b', borderRadius: '12px', border: 'none', color: '#fff' }} 
+                                                        labelClassName="font-bold text-blue-400 text-xs"
+                                                    />
+                                                    <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                                                    <Area type="monotone" dataKey="pending" fill="#fef3c7" stroke="#fbbf24" name="未安裝庫存量 (水庫)" />
+                                                    <Line type="monotone" strokeWidth={3} dataKey="install" stroke="#4f46e5" name="本週實績裝機" activeDot={{ r: 8 }} />
+                                                    <Line type="monotone" strokeWidth={2} strokeDasharray="5 5" dataKey="nextInstall" stroke="#10b981" name="下週預計裝機" />
+                                                </ComposedChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+
+                                    {/* 最新一期戰況柱狀對比圖 */}
+                                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                                        <h3 className="text-lg font-bold text-slate-900 mb-1">
+                                            組員本期戰況對比
+                                        </h3>
+                                        <p className="text-xs text-slate-500 mb-6">比較各個組員最新一期的實際裝機量與 KPI 達成狀況</p>
+                                        
+                                        {memberPerformanceData.length === 0 ? (
+                                            <div className="p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-xl">
+                                                暫無最新週期的數據，請先在左方表單輸入。
+                                            </div>
+                                        ) : (
+                                            <div className="h-64 w-full">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={memberPerformanceData}>
+                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                                        <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} />
+                                                        <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} />
+                                                        <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderRadius: '12px', border: 'none', color: '#fff' }} />
+                                                        <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '12px' }} />
+                                                        <Bar dataKey="實際裝機" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                                                        <Bar dataKey="當週KPI" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
+                                                        <Bar dataKey="累計成交" fill="#10b981" radius={[4, 4, 0, 0]} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 全隊數據明細總表 */}
+                            {activeTab === 'dataTable' && (
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                                    <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-slate-900">組員歷史填報明細總表</h3>
+                                            <p className="text-xs text-slate-500">所有登錄或追溯補登數據的完整列表</p>
+                                        </div>
+                                        <div className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full font-medium">
+                                            共計 {entries.length} 筆提交
+                                        </div>
+                                    </div>
+
+                                    {entries.length === 0 ? (
+                                        <div className="p-16 text-center text-slate-400">
+                                            <Icons.ClipboardList />
+                                            <p className="font-semibold mt-2">目前尚無數據明細</p>
+                                            <p className="text-xs mt-1">請利用左側表單為業務輸入第一筆數據。</p>
+                                        </div>
+                                    ) : (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left border-collapse text-xs">
+                                                <thead>
+                                                    <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-100">
+                                                        <th className="p-4">業務/週期</th>
+                                                        <th className="p-4 text-center">本週裝機</th>
+                                                        <th className="p-4 text-center">下週預計</th>
+                                                        <th className="p-4 text-center">未裝庫存</th>
+                                                        <th className="p-4 text-center">當月累成交</th>
+                                                        <th className="p-4 text-center">KPI(週目標/累計)</th>
+                                                        <th className="p-4 text-center">操作</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {entries.map((item) => (
+                                                        <tr key={item.id} className="hover:bg-slate-50/80 transition">
+                                                            <td className="p-4 font-semibold">
+                                                                <span className="text-slate-900 block text-sm">{item.name}</span>
+                                                                <span className="text-slate-500 text-[10px] bg-slate-100 px-1.5 py-0.5 rounded inline-block mt-1 font-mono font-medium">{item.week}</span>
+                                                            </td>
+                                                            <td className="p-4 text-center">
+                                                                <span className="bg-indigo-50 text-indigo-800 px-2 py-1 rounded font-bold">{item.install}</span>
+                                                            </td>
+                                                            <td className="p-4 text-center">
+                                                                <span className="bg-emerald-50 text-emerald-800 px-2 py-1 rounded font-bold">{item.nextInstall}</span>
+                                                            </td>
+                                                            <td className="p-4 text-center text-amber-700 font-bold bg-amber-50/20">{item.pending}</td>
+                                                            <td className="p-4 text-center text-slate-700 font-medium">{item.totalDeals}</td>
+                                                            <td className="p-4 text-center text-slate-500">
+                                                                {item.kpi} / <span className="font-semibold text-slate-800">{item.cumulativeKpi}</span>
+                                                            </td>
+                                                            <td className="p-4 text-center">
+                                                                <button
+                                                                    onClick={() => handleDeleteEntry(item.id)}
+                                                                    className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition"
+                                                                    title="刪除此筆記錄"
+                                                                >
+                                                                    <Icons.Trash2 />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 主管支援與卡關討論板 */}
+                            {activeTab === 'supportBoard' && (
+                                <div className="space-y-4">
+                                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                                        <h3 className="text-lg font-bold text-slate-900">週會焦點討論：主管支援板</h3>
+                                        <p className="text-xs text-slate-500">
+                                            會議時，請直接切換到此面板！聚焦討論並解決業務提出需要主管協助、或是跨部門排程支援的實質痛點。
+                                        </p>
+                                    </div>
+
+                                    {entries.filter(e => e.support && e.support !== '無').length === 0 ? (
+                                        <div className="bg-white p-12 text-center rounded-2xl border border-dashed border-slate-200 text-slate-400">
+                                            <Icons.CheckCircle2 />
+                                            <p className="font-semibold mt-2">目前無任何協助需求申報</p>
+                                            <p className="text-xs mt-1">組員運作順利，若遇簽約卡關或施工問題可在填表時附帶說明。</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {entries
+                                                .filter(e => e.support && e.support !== '無')
+                                                .map((item) => (
+                                                    <div key={item.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                                                        <div>
+                                                            <div className="flex justify-between items-start mb-3">
+                                                                <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                                                                    <span className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse"></span>
+                                                                    {item.name}
+                                                                </span>
+                                                                <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-medium">{item.week}</span>
+                                                            </div>
+
+                                                            <div className="my-4">
+                                                                <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+                                                                    <span className="text-[10px] font-bold text-indigo-800 uppercase flex items-center gap-1">
+                                                                        <Icons.HelpCircle /> 需要主管支援與跨部門協調
+                                                                    </span>
+                                                                    <p className="text-xs text-slate-700 font-semibold mt-1">
+                                                                        {item.support}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="pt-3 border-t border-slate-100 text-[10px] text-slate-400 flex justify-between items-center">
+                                                            <span>待裝機庫存 (水庫): <b className="text-slate-700">{item.pending} 間</b></span>
+                                                            <span>當月總成交: <b className="text-emerald-600">{item.totalDeals} 間</b></span>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            }
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 組員名單與管理分頁 */}
+                            {activeTab === 'memberMgmt' && (
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                                    <h3 className="text-lg font-bold text-slate-900 mb-1">團隊組員名單設定</h3>
+                                    <p className="text-xs text-slate-500 mb-6">新增、移除業務同仁。更新後，填表下拉選單會同步更新。</p>
+                                    
+                                    <form onSubmit={handleAddMember} className="flex gap-2 mb-6">
+                                        <input 
+                                            type="text" 
+                                            placeholder="輸入新組員姓名" 
+                                            className="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            value={newMemberName}
+                                            onChange={(e) => setNewMemberName(e.target.value)}
+                                        />
+                                        <button 
+                                            type="submit"
+                                            className="bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm font-bold flex items-center gap-1.5 hover:bg-slate-800 transition shadow-sm"
+                                        >
+                                            <Icons.UserPlus />
+                                            新增成員
+                                        </button>
+                                    </form>
+
+                                    <div className="space-y-2">
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">現有組員列表 ({members.length})</span>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {members.map(member => (
+                                                <div key={member} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                                                    <span className="font-bold text-slate-800 flex items-center gap-2">
+                                                        <span className="w-7 h-7 bg-indigo-100 text-indigo-800 font-bold rounded-full flex items-center justify-center text-xs">
+                                                            {member.charAt(0)}
+                                                        </span>
+                                                        {member}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => handleDeleteMember(member)}
+                                                        className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition"
+                                                        title="自組員名單移除"
+                                                    >
+                                                        <Icons.Trash2 />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 雲端資料庫設定分頁 */}
+                            {activeTab === 'cloudSettings' && (
+                                <div className="space-y-6">
+                                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                                        <h3 className="text-lg font-bold text-slate-900 mb-2 flex items-center gap-2">
+                                            <Icons.Database /> 
+                                            雲端實時協作設定
+                                        </h3>
+                                        <p className="text-xs text-slate-500 mb-6">
+                                            將資料儲存位置從「本機瀏覽器」升級為「雲端資料庫」，實現組員隨時隨地填寫、數據即時自動彙總。
+                                        </p>
+
+                                        <div className="space-y-4">
+                                            {/* 雲端啟用開關 */}
+                                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                                <div>
+                                                    <span className="font-bold text-sm block">啟用雲端協作同步</span>
+                                                    <span className="text-xs text-slate-400 block">開啟後，數據將即時讀取與儲存至您的 Firebase</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => setIsCloudMode(!isCloudMode)}
+                                                    className={`w-14 h-8 rounded-full transition-colors relative focus:outline-none ${isCloudMode ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                                                >
+                                                    <span className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform transform ${isCloudMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                </button>
+                                            </div>
+
+                                            {/* 資料庫路徑設定輸入欄 */}
+                                            {isCloudMode && (
+                                                <div className="p-4 border border-indigo-100 bg-indigo-50/30 rounded-xl space-y-3">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Firebase Realtime Database URL</label>
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder="https://your-project-default-rtdb.firebaseio.com"
+                                                            className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                                                            value={firebaseUrl}
+                                                            onChange={(e) => setFirebaseUrl(e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">小組代號 / Group Key (不同組可各自獨立數據)</label>
+                                                        <input 
+                                                            type="text" 
+                                                            className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                                                            value={groupKey}
+                                                            onChange={(e) => setGroupKey(e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            syncFromCloud();
+                                                            triggerToast('已成功連線並載入雲端資料！');
+                                                        }}
+                                                        className="w-full bg-slate-900 text-white py-2 rounded-lg text-xs font-semibold hover:bg-slate-800 transition"
+                                                    >
+                                                        立即手動連線同步雲端數據
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* 快速申請手冊 */}
+                                    <div className="bg-slate-900 text-slate-100 p-6 rounded-2xl shadow-sm">
+                                        <h4 className="font-bold text-sm text-indigo-400 mb-3 flex items-center gap-1.5">
+                                            <Icons.HelpCircle /> 2分鐘極速建立「免費」Firebase 雲端資料庫教學
+                                        </h4>
+                                        <ol className="list-decimal list-inside space-y-2.5 text-xs text-slate-300">
+                                            <li>前往 <a href="https://console.firebase.google.com/" target="_blank" className="text-white underline font-semibold">Firebase Console</a>，點擊「新增專案」。</li>
+                                            <li>專案建立後，在左側選單找到 <b>Build (建置) &gt; Realtime Database (即時資料庫)</b>，點選建立。</li>
+                                            <li>資料庫地區選擇預設（比利時或新加坡皆可），規則選擇「以測試模式啟動」（這會開啟 30 天讀寫權限，方便團隊即時填寫）。</li>
+                                            <li>建立後，複製畫面上方顯示的網址（格式為 <code>https://...firebaseio.com/</code>）。</li>
+                                            <li>將該網址貼入上方的 URL 欄位中，點擊連線。大功告成！全體組員立刻開始實時協作同步。</li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // 掛載並渲染網頁
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
