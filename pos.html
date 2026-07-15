@@ -45,7 +45,6 @@
         const { useState, useMemo, useEffect, useRef } = React;
         const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, ComposedChart, Area } = window.Recharts;
 
-        // 內置 SVG 圖標模組，免除外部連結失效的風險
         const Icons = {
             TrendingUp: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>,
             Award: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>,
@@ -76,12 +75,12 @@
             { id: 7, name: '志豪', week: '7月 W2 (07/06 - 07/12)', install: 3, nextInstall: 4, pending: 5, kpi: 4, cumulativeKpi: 5, support: '需要工程支援廚房連線問題' },
             { id: 8, name: '美玲', week: '7月 W2 (07/06 - 07/12)', install: 4, nextInstall: 5, pending: 3, kpi: 4, cumulativeKpi: 9, support: '無' },
             
-            // 6月歷史補登示範數據（用於測試完全隔離計算，無跨月加總污染）
-            { id: 11, name: '小威', week: '6月 W1 (06/01 - 06/07)', install: 3, nextInstall: 2, pending: 2, kpi: 4, cumulativeKpi: 15, support: '無' },
-            { id: 12, name: '小威', week: '6月 W2 (06/08 - 06/14)', install: 1, nextInstall: 3, pending: 1, kpi: 4, cumulativeKpi: 12, support: '無' },
-            { id: 13, name: '小威', week: '6月 W3 (06/15 - 06/21)', install: 4, nextInstall: 3, pending: 0, kpi: 4, cumulativeKpi: 15, support: '無' },
-            { id: 14, name: '小威', week: '6月 W4 (06/22 - 06/28)', install: 3, nextInstall: 2, pending: 1, kpi: 4, cumulativeKpi: 15, support: '無' },
-            { id: 15, name: '小威', week: '6月 W5 (06/29 - 06/30)', install: 2, nextInstall: 0, pending: 0, kpi: 5, cumulativeKpi: 5, support: '無' }
+            // 6月歷史補登示範數據（精確隔離計算測試）
+            { id: 11, name: '小威', week: '6月 W1 (06/01 - 06/07)', install: 3, nextInstall: 2, pending: 2, kpi: 4, cumulativeKpi: 3, support: '無' },
+            { id: 12, name: '小威', week: '6月 W2 (06/08 - 06/14)', install: 1, nextInstall: 3, pending: 1, kpi: 4, cumulativeKpi: 4, support: '無' },
+            { id: 13, name: '小威', week: '6月 W3 (06/15 - 06/21)', install: 4, nextInstall: 3, pending: 0, kpi: 4, cumulativeKpi: 8, support: '無' },
+            { id: 14, name: '小威', week: '6月 W4 (06/22 - 06/28)', install: 3, nextInstall: 2, pending: 1, kpi: 4, cumulativeKpi: 11, support: '無' },
+            { id: 15, name: '小威', week: '6月 W5 (06/29 - 06/30)', install: 2, nextInstall: 0, pending: 0, kpi: 5, cumulativeKpi: 13, support: '無' }
         ];
 
         // 智慧計算對應月份的每週日期區間
@@ -139,22 +138,21 @@
 
         const App = () => {
             const [entries, setEntries] = useState(() => {
-                const saved = localStorage.getItem('pos_entries_v9');
+                const saved = localStorage.getItem('pos_entries_v10');
                 return saved ? JSON.parse(saved) : DEFAULT_ENTRIES;
             });
 
             const [members, setMembers] = useState(() => {
-                const saved = localStorage.getItem('pos_members_v9');
+                const saved = localStorage.getItem('pos_members_v10');
                 return saved ? JSON.parse(saved) : DEFAULT_MEMBERS;
             });
 
-            // 全域統一月份篩選器 - 預設為本期 7 月
             const [selectedMonthFilter, setSelectedMonthFilter] = useState('7月');
             const [selectedMemberFilter, setSelectedMemberFilter] = useState('All');
+            const [tableMode, setTableMode] = useState('detail'); // 'detail' | 'summary'
 
-            // 團隊整體業績目標值儲存（按月份儲存，實現各月目標分離）
             const [monthlyTargets, setMonthlyTargets] = useState(() => {
-                const saved = localStorage.getItem('pos_monthly_targets_v2');
+                const saved = localStorage.getItem('pos_monthly_targets_v3');
                 return saved ? JSON.parse(saved) : { 
                     '7月': 30, '6月': 20, '5月': 25, '4月': 25, '3月': 20, '2月': 20, '1月': 20, 'All': 100 
                 };
@@ -215,18 +213,18 @@
 
             useEffect(() => {
                 if (!isCloudMode) {
-                    localStorage.setItem('pos_entries_v9', JSON.stringify(entries));
+                    localStorage.setItem('pos_entries_v10', JSON.stringify(entries));
                 }
             }, [entries, isCloudMode]);
 
             useEffect(() => {
                 if (!isCloudMode) {
-                    localStorage.setItem('pos_members_v9', JSON.stringify(members));
+                    localStorage.setItem('pos_members_v10', JSON.stringify(members));
                 }
             }, [members, isCloudMode]);
 
             useEffect(() => {
-                localStorage.setItem('pos_monthly_targets_v2', JSON.stringify(monthlyTargets));
+                localStorage.setItem('pos_monthly_targets_v3', JSON.stringify(monthlyTargets));
             }, [monthlyTargets]);
 
             const syncFromCloud = async () => {
@@ -256,7 +254,6 @@
                     setLastSynced(new Date().toLocaleTimeString());
                 } catch (err) {
                     console.error(err);
-                    triggerToast('雲端同步失敗，請確認 Firebase 資料庫網址是否正確。', 'error');
                 }
             };
 
@@ -279,7 +276,6 @@
                     setLastSynced(new Date().toLocaleTimeString());
                 } catch (err) {
                     console.error(err);
-                    triggerToast('儲存至雲端失敗。', 'error');
                 }
             };
 
@@ -299,7 +295,6 @@
             };
 
             const computedEntries = useMemo(() => {
-                // 1. 先將所有填報按「組員_月份」嚴格分組，徹底阻斷跨月數值的累計污染
                 const groups = {};
                 entries.forEach(e => {
                     const month = getMonthFromWeek(e.week);
@@ -310,18 +305,15 @@
 
                 const computedMap = new Map();
                 
-                // 2. 針對各個分組進行嚴格的「當月累計成交」計算：只累計當月裝機量 (不再混入庫存)
                 Object.keys(groups).forEach(key => {
                     const groupEntries = [...groups[key]];
-                    // 依據週別索引排序，確保按時間順序累加
                     groupEntries.sort((a, b) => getWeekIndex(a.week) - getWeekIndex(b.week));
 
                     let monthlyCumulativeInstalls = 0;
                     groupEntries.forEach(e => {
                         monthlyCumulativeInstalls += (e.install || 0);
-                        // 修正：本月累計總成交 = 只加總「本月累計裝機量」，絕對不納入未安裝水庫量 (pending)！
-                        const computedTotalDeals = monthlyCumulativeInstalls;
-                        computedMap.set(e.id, computedTotalDeals);
+                        // 修正：成交量完全等同於實際裝機之歷史累加，不提前灌水
+                        computedMap.set(e.id, monthlyCumulativeInstalls);
                     });
                 });
 
@@ -332,19 +324,16 @@
             }, [entries]);
 
             const summaryMetricsByMonth = useMemo(() => {
-                // 依選取的月份進行「嚴格數據過濾」
                 const monthlyEntries = computedEntries.filter(e => {
                     if (selectedMonthFilter === 'All') return true;
                     return getMonthFromWeek(e.week) === selectedMonthFilter;
                 });
 
-                // 1. 選定月份的「累計裝機量」= 實際成交量
+                // 累計裝機 = 該時間段裝機加總
                 const totalInstalls = monthlyEntries.reduce((acc, curr) => acc + (curr.install || 0), 0);
-
-                // 2. 「當月累計總成交」= 實績裝機加總（不含水庫庫存）
                 const totalDeals = totalInstalls; 
 
-                // 3. 最新一期的「簽約待安裝水庫」：取各組員在該月份最新一期的 pending 值加總
+                // 水庫Pending：抓取各組員在選定區間中，最新一期申報的pending
                 const latestPendingByMember = {};
                 monthlyEntries.forEach(e => {
                     const weekIdx = getWeekIndex(e.week);
@@ -356,14 +345,11 @@
                     }
                 });
                 const totalPending = Object.values(latestPendingByMember).reduce((acc, curr) => acc + curr.pending, 0);
-
-                // 4. 選定月份的「待協調支援案件數」
                 const activeSupports = monthlyEntries.filter(e => e.support && e.support !== '無').length;
 
                 return { totalInstalls, totalDeals, totalPending, activeSupports };
             }, [computedEntries, selectedMonthFilter]);
 
-            // 當前選定月份目標與達成率計算
             const currentTarget = useMemo(() => {
                 return monthlyTargets[selectedMonthFilter] || 20;
             }, [monthlyTargets, selectedMonthFilter]);
@@ -491,52 +477,16 @@
                 }
             };
 
-            const availableMonths = useMemo(() => {
-                const months = new Set();
-                computedEntries.forEach(e => {
-                    months.add(getMonthFromWeek(e.week));
-                });
-                return Array.from(months).sort((a, b) => {
-                    const valA = parseInt(a, 10) || 999;
-                    const valB = parseInt(b, 10) || 999;
-                    return valA - valB;
-                });
-            }, [computedEntries]);
-
             const chartData = useMemo(() => {
-                const grouped = {};
-                let filteredEntries = computedEntries;
-
-                if (selectedMemberFilter !== 'All') {
-                    filteredEntries = filteredEntries.filter(e => e.name === selectedMemberFilter);
-                }
-
-                if (selectedMonthFilter !== 'All') {
-                    filteredEntries = filteredEntries.filter(e => getMonthFromWeek(e.week) === selectedMonthFilter);
-                }
-
-                filteredEntries.forEach(e => {
-                    if (!grouped[e.week]) {
-                        grouped[e.week] = {
-                            week: e.week,
-                            install: 0,
-                            nextInstall: 0,
-                            pending: 0,
-                            totalDeals: 0,
-                            kpi: 0,
-                            count: 0
-                        };
+                // 整理出所有不重複之週別
+                const weeksSet = new Set();
+                computedEntries.forEach(e => {
+                    if (selectedMonthFilter === 'All' || getMonthFromWeek(e.week) === selectedMonthFilter) {
+                        weeksSet.add(e.week);
                     }
-                    grouped[e.week].install += e.install || 0;
-                    grouped[e.week].nextInstall += e.nextInstall || 0;
-                    grouped[e.week].pending += e.pending || 0;
-                    // 這邊也是累加修正後、完全不含 pending 的累計裝機實績
-                    grouped[e.week].totalDeals += e.totalDeals || 0;
-                    grouped[e.week].kpi += e.kpi || 0;
-                    grouped[e.week].count += 1;
                 });
-
-                return Object.values(grouped).sort((a, b) => {
+                
+                const sortedWeeks = Array.from(weeksSet).sort((a, b) => {
                     const parseWeek = (w) => {
                         const match = w.match(/(\d+)月\s+W(\d+)/);
                         if (match) {
@@ -544,40 +494,102 @@
                         }
                         return 999;
                     };
-                    return parseWeek(a.week) - parseWeek(b.week);
+                    return parseWeek(a) - parseWeek(b);
                 });
-            }, [computedEntries, selectedMemberFilter, selectedMonthFilter]);
 
-            // 本期戰況對比 - 數據源升級！跟著上方全域時間篩選器「完全實時連動」
+                if (selectedMemberFilter === 'All') {
+                    // 全隊模式下，建立每週各組員獨立裝機走勢對齊資料
+                    return sortedWeeks.map(wk => {
+                        const row = { week: wk };
+                        members.forEach(m => {
+                            const match = computedEntries.find(e => e.week === wk && e.name === m);
+                            row[m] = match ? (match.install || 0) : 0;
+                        });
+                        return row;
+                    });
+                } else {
+                    // 單人模式：顯示本週裝機、下週預估、水庫與成交累計
+                    return sortedWeeks.map(wk => {
+                        const match = computedEntries.find(e => e.week === wk && e.name === selectedMemberFilter);
+                        return {
+                            week: wk,
+                            install: match ? (match.install || 0) : 0,
+                            nextInstall: match ? (match.nextInstall || 0) : 0,
+                            pending: match ? (match.pending || 0) : 0,
+                            totalDeals: match ? (match.totalDeals || 0) : 0
+                        };
+                    });
+                }
+            }, [computedEntries, selectedMemberFilter, selectedMonthFilter, members]);
+
+            // 組員業績本期戰況對比（重寫為當月總加總數字）
             const memberPerformanceData = useMemo(() => {
-                if (computedEntries.length === 0) return [];
-                
                 const monthlyEntries = computedEntries.filter(e => {
                     if (selectedMonthFilter === 'All') return true;
                     return getMonthFromWeek(e.week) === selectedMonthFilter;
                 });
 
-                if (monthlyEntries.length === 0) return [];
+                const dataset = {};
+                members.forEach(m => {
+                    dataset[m] = {
+                        name: m,
+                        '實際裝機': 0,
+                        '當週KPI': 0,
+                        '累計成交': 0
+                    };
+                });
 
-                // 找出選定月份中最新的一週（例如 7月 W2）
-                monthlyEntries.sort((a, b) => getWeekIndex(b.week) - getWeekIndex(a.week));
-                const latestWeekInMonth = monthlyEntries[0].week;
+                monthlyEntries.forEach(e => {
+                    if (dataset[e.name]) {
+                        dataset[e.name]['實際裝機'] += e.install || 0;
+                        dataset[e.name]['當週KPI'] += e.kpi || 0;
+                        dataset[e.name]['累計成交'] += e.install || 0; // 精確成交（排除水庫）
+                    }
+                });
 
-                // 篩選該週別的所有同仁數據
-                const weekEntries = monthlyEntries.filter(e => e.week === latestWeekInMonth);
-                
-                return weekEntries.map(e => ({
-                    name: e.name,
-                    '實際裝機': e.install,
-                    '當週KPI': e.kpi,
-                    '累計成交': e.totalDeals // 已採用高精度排空水庫邏輯
-                }));
-            }, [computedEntries, selectedMonthFilter]);
+                return Object.values(dataset).filter(item => item['實際裝機'] > 0 || item['當週KPI'] > 0);
+            }, [computedEntries, selectedMonthFilter, members]);
+
+            // 明細表 -> 組員按月「統整聚合報表」運算邏輯
+            const summaryEntries = useMemo(() => {
+                const groups = {};
+                computedEntries.forEach(e => {
+                    const month = getMonthFromWeek(e.week);
+                    const key = `${e.name}_${month}`;
+                    if (!groups[key]) {
+                        groups[key] = {
+                            name: e.name,
+                            month: month,
+                            totalInstall: 0,
+                            latestPending: 0,
+                            latestWeekIndex: -1,
+                            totalKpi: 0,
+                            totalDeals: 0
+                        };
+                    }
+                    groups[key].totalInstall += e.install || 0;
+                    groups[key].totalKpi += e.kpi || 0;
+                    
+                    const wIdx = getWeekIndex(e.week);
+                    if (wIdx > groups[key].latestWeekIndex) {
+                        groups[key].latestWeekIndex = wIdx;
+                        groups[key].latestPending = e.pending || 0;
+                    }
+                });
+
+                return Object.values(groups).map(g => ({
+                    ...g,
+                    totalDeals: g.totalInstall // 已排除 pending 跨月污染
+                })).sort((a, b) => {
+                    const valA = parseInt(a.month, 10) || 999;
+                    const valB = parseInt(b.month, 10) || 999;
+                    return valB - valA; // 依月份排序
+                });
+            }, [computedEntries]);
 
             return (
                 <div className="p-4 md:p-8 max-w-7xl mx-auto">
                     
-                    {/* 自訂通知視窗 (Toast) */}
                     {toast.show && (
                         <div className={`fixed bottom-5 right-5 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg border text-white transition-all transform scale-100 duration-300 ${
                             toast.type === 'error' ? 'bg-rose-600 border-rose-500' : 
@@ -588,7 +600,6 @@
                         </div>
                     )}
 
-                    {/* 重置確認對話框 */}
                     {showResetConfirm && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                             <div className="bg-white p-6 rounded-2xl max-w-md w-full shadow-2xl border border-slate-100">
@@ -634,11 +645,11 @@
                             </div>
                             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">POS 團隊業績填報與走勢系統</h1>
                             <p className="text-slate-500 text-sm mt-1">
-                                開會前填寫數字。本月累計總成交自動計算隔離，完美連動全功能分析大盤！
+                                開會前填寫數字。本月累計總成交自動隔離，多維趨勢大盤完全同步連動！
                             </p>
                         </div>
                         
-                        {/* 核心全域月份篩選控制鈕（決定整個網頁的呈現） */}
+                        {/* 核心全域月份篩選控制鈕（連動大盤、對比圖、走勢） */}
                         <div className="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200 shrink-0">
                             <span className="text-xs font-bold text-slate-500 pl-2">📅 查看時間範圍:</span>
                             <select
@@ -664,11 +675,10 @@
                         </div>
                     </header>
 
-                    {/* 🏆 團隊業績目標與達成率大盤看板（全域展示） */}
+                    {/* 🏆 全域大盤達成率與業績統計指標看板 */}
                     <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-6 rounded-2xl shadow-lg border border-indigo-500/30 mb-8 animate-fade-in">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                             
-                            {/* 目標數字統計與編輯 */}
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
                                     <div className="p-2 bg-indigo-500/20 text-indigo-300 rounded-lg border border-indigo-500/30">
@@ -723,7 +733,6 @@
                                 </div>
                             </div>
 
-                            {/* 達成百分比與圓環/進度條 */}
                             <div className="flex-1 max-w-md w-full">
                                 <div className="flex justify-between items-center mb-2">
                                     <span className="text-xs text-slate-300 font-medium">整體目標達成率</span>
@@ -742,8 +751,8 @@
                                 <p className="text-[11px] text-slate-400 mt-1.5 flex justify-between">
                                     <span>
                                         {currentDeals >= currentTarget 
-                                            ? '🎉 超水準發揮！已成功達成本月目標！' 
-                                            : `🔥 距離本月達標，還差 ${currentTarget - currentDeals} 間！`}
+                                            ? '🎉 超水準發揮！已成功達成本期目標！' 
+                                            : `🔥 距離本期達標，還差 ${currentTarget - currentDeals} 間！`}
                                     </span>
                                     <span className="font-semibold text-slate-300">達標率：{achievementRate}%</span>
                                 </p>
@@ -751,7 +760,7 @@
                         </div>
                     </div>
 
-                    {/* 📊 選定月份數據指標看板 */}
+                    {/* 📊 精確選定月份四大核心業績卡片 */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
                             <div>
@@ -759,7 +768,7 @@
                                     {selectedMonthFilter} 累計裝機量
                                 </span>
                                 <span className="text-3xl font-bold text-slate-900">{summaryMetricsByMonth.totalInstalls}</span>
-                                <span className="text-xs text-emerald-600 font-medium block mt-1">只算當月實績裝機</span>
+                                <span className="text-xs text-emerald-600 font-medium block mt-1">只算當月實績已裝機</span>
                             </div>
                             <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
                                 <Icons.TrendingUp />
@@ -774,7 +783,7 @@
                                 <span className="text-3xl font-bold text-indigo-600">
                                     {summaryMetricsByMonth.totalDeals} <span className="text-sm font-normal text-slate-500">間</span>
                                 </span>
-                                <span className="text-xs text-indigo-500 font-medium block mt-1">智慧公式月度隔離 (不含庫存)</span>
+                                <span className="text-xs text-indigo-500 font-medium block mt-1">實績與裝機一致，排除水庫</span>
                             </div>
                             <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
                                 <Icons.Award />
@@ -789,7 +798,7 @@
                                 <span className="text-3xl font-bold text-slate-900">
                                     {summaryMetricsByMonth.totalPending} <span className="text-sm font-normal text-slate-500">間</span>
                                 </span>
-                                <span className="text-xs text-amber-600 font-medium block mt-1">當月最新尚未安裝存量</span>
+                                <span className="text-xs text-amber-600 font-medium block mt-1">累積未安裝，不列入成交</span>
                             </div>
                             <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
                                 <Icons.Briefcase />
@@ -804,7 +813,7 @@
                                 <span className="text-3xl font-bold text-rose-600">
                                     {summaryMetricsByMonth.activeSupports} <span className="text-sm font-normal text-slate-500">案</span>
                                 </span>
-                                <span className="text-xs text-rose-500 font-medium block mt-1">🚨 需要主管介入協調</span>
+                                <span className="text-xs text-rose-500 font-medium block mt-1">🚨 需要主管跨部門協調</span>
                             </div>
                             <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
                                 <Icons.AlertTriangle />
@@ -812,15 +821,15 @@
                         </div>
                     </div>
 
-                    {/* 填報與控制核心板塊 */}
+                    {/* 核心填報與儀表板分析主體 */}
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                         
-                        {/* 左側：數據填報卡片 (4/12) */}
+                        {/* 左側：填報登錄卡片 */}
                         <div className="lg:col-span-4 space-y-6">
                             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
                                 <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2 pb-3 border-b border-slate-100">
                                     <Icons.PlusCircle /> 
-                                    <span>業務數據填報與補登</span>
+                                    <span>業務預報與補登錄</span>
                                 </h2>
                                 
                                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -837,7 +846,7 @@
                                         </select>
                                     </div>
 
-                                    {/* 歷史時間與智慧週別聯動選擇器 */}
+                                    {/* 歷史時間與週別連動 */}
                                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
                                         <div className="flex items-center justify-between">
                                             <span className="text-xs font-bold text-slate-600 flex items-center gap-1">
@@ -874,7 +883,7 @@
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-400 mb-1">選擇週別 (自動帶出對應日期)</label>
+                                                    <label className="block text-[10px] font-bold text-slate-400 mb-1">選擇週別 (系統精準計算真實日期)</label>
                                                     <select 
                                                         className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
                                                         value={selectedWeek}
@@ -902,7 +911,7 @@
                                         )}
                                     </div>
 
-                                    {/* 核心業績填報欄位 */}
+                                    {/* 實績數據輸入欄 */}
                                     <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100/60 space-y-3">
                                         <span className="text-xs font-bold text-blue-800 block">📊 業績與裝機數據 (單位：間數)</span>
                                         
@@ -933,7 +942,7 @@
 
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
-                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">未裝庫存量 (水庫)</label>
+                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">未安裝庫存量 (水庫)</label>
                                                 <input 
                                                     type="number" 
                                                     placeholder="0"
@@ -956,9 +965,8 @@
                                             </div>
                                         </div>
 
-                                        {/* 累積已達成 KPI */}
                                         <div>
-                                            <label className="block text-[10px] font-bold text-slate-500 mb-1">累積已達成 KPI (累計已申報目標進度)</label>
+                                            <label className="block text-xs font-bold text-slate-500 mb-1">累積已達成 KPI (申報進度)</label>
                                             <input 
                                                 type="number" 
                                                 placeholder="0"
@@ -970,7 +978,7 @@
                                         </div>
                                     </div>
 
-                                    {/* 備註卡關與協助 */}
+                                    {/* 主管協助備註 */}
                                     <div className="space-y-2">
                                         <label className="block text-xs font-bold text-slate-500 uppercase">💡 需要主管支援或跨部門協調 (非必填)</label>
                                         <textarea 
@@ -992,10 +1000,10 @@
                             </div>
                         </div>
 
-                        {/* 右側：走勢圖表與大盤管理 (8/12) */}
+                        {/* 右側：圖表與多功能報表分頁 */}
                         <div className="lg:col-span-8 space-y-6">
                             
-                            {/* 分頁 Tab */}
+                            {/* 分頁控制 */}
                             <div className="bg-white p-1.5 rounded-xl shadow-sm border border-slate-200/80 flex flex-wrap gap-1">
                                 <button
                                     onClick={() => setActiveTab('dashboard')}
@@ -1057,30 +1065,34 @@
                                 </button>
                             </div>
 
-                            {/* 走勢分析圖表分頁 */}
+                            {/* 圖表分析分頁 */}
                             {activeTab === 'dashboard' && (
                                 <div className="space-y-6">
                                     
-                                    {/* 裝機與庫存綜合趨勢走勢圖 */}
+                                    {/* 歷史趨勢折線走勢圖 */}
                                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
                                         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-6">
                                             <div>
                                                 <h3 className="text-lg font-bold text-slate-900">
                                                     業績走勢趨勢圖 ({selectedMonthFilter === 'All' ? '歷史至今' : `${selectedMonthFilter}`})
                                                 </h3>
-                                                <p className="text-xs text-slate-500">檢視團隊或個人在不同月份及週別的數據演進（本月累計總成交不含待裝庫存）</p>
+                                                <p className="text-xs text-slate-500">
+                                                    {selectedMemberFilter === 'All' 
+                                                        ? '已開啟【全隊分線走勢】：每個業務以獨立顏色線條呈現其裝機起伏，一目了然！' 
+                                                        : '單人走勢模式：已呈現其裝機、水庫與成交等多重維度。'}
+                                                </p>
                                             </div>
                                             
-                                            {/* 走勢圖組員篩選功能 */}
+                                            {/* 篩選控制器 */}
                                             <div className="flex flex-wrap items-center gap-2 bg-slate-100 p-1.5 rounded-xl w-full xl:w-auto">
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="text-[11px] font-bold text-slate-500 pl-1">篩選組員:</span>
+                                                    <span className="text-[11px] font-bold text-slate-500 pl-1">選擇對象:</span>
                                                     <select
-                                                        className="text-xs bg-white border border-slate-200 rounded-lg p-1.5 font-medium focus:outline-none"
+                                                        className="text-xs bg-white border border-slate-200 rounded-lg p-1.5 font-bold focus:outline-none"
                                                         value={selectedMemberFilter}
                                                         onChange={(e) => setSelectedMemberFilter(e.target.value)}
                                                     >
-                                                        <option value="All">顯示全隊 (加總)</option>
+                                                        <option value="All">顯示全隊 (分線比較)</option>
                                                         {members.map(m => (
                                                             <option key={m} value={m}>{m}</option>
                                                         ))}
@@ -1100,25 +1112,48 @@
                                                         labelClassName="font-bold text-blue-400 text-xs"
                                                     />
                                                     <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
-                                                    <Area type="monotone" dataKey="pending" fill="#fef3c7" stroke="#fbbf24" name="未安裝庫存量 (水庫)" />
-                                                    <Line type="monotone" strokeWidth={3} dataKey="install" stroke="#4f46e5" name="本週實績裝機" activeDot={{ r: 8 }} />
-                                                    <Line type="monotone" strokeWidth={2} strokeDasharray="5 5" dataKey="nextInstall" stroke="#10b981" name="下週預計裝機" />
-                                                    <Line type="monotone" strokeWidth={2} dataKey="totalDeals" stroke="#f43f5e" name="自動累計總成交" />
+                                                    
+                                                    {selectedMemberFilter === 'All' ? (
+                                                        // 全隊分線模式：動態輸出各個成員的彩色裝機線條
+                                                        members.map((m, idx) => {
+                                                            const colors = ['#4f46e5', '#10b981', '#f43f5e', '#fbbf24', '#8b5cf6', '#ec4899', '#06b6d4'];
+                                                            const strokeColor = colors[idx % colors.length];
+                                                            return (
+                                                                <Line 
+                                                                    key={m} 
+                                                                    type="monotone" 
+                                                                    strokeWidth={3} 
+                                                                    dataKey={m} 
+                                                                    stroke={strokeColor} 
+                                                                    name={`${m} 裝機量`} 
+                                                                    activeDot={{ r: 6 }} 
+                                                                />
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        // 單人專屬模式：多維度全面指標線條
+                                                        <>
+                                                            <Area type="monotone" dataKey="pending" fill="#fef3c7" stroke="#fbbf24" name="未安裝庫存 (水庫)" />
+                                                            <Line type="monotone" strokeWidth={3} dataKey="install" stroke="#4f46e5" name="本週實績裝機" activeDot={{ r: 8 }} />
+                                                            <Line type="monotone" strokeWidth={2} strokeDasharray="5 5" dataKey="nextInstall" stroke="#10b981" name="下週預計裝機" />
+                                                            <Line type="monotone" strokeWidth={2.5} dataKey="totalDeals" stroke="#f43f5e" name="自動累計總成交" />
+                                                        </>
+                                                    )}
                                                 </ComposedChart>
                                             </ResponsiveContainer>
                                         </div>
                                     </div>
 
-                                    {/* 最新一期戰況柱狀對比圖（與月份全域連動） */}
+                                    {/* 月度總體戰況對比圖（已連動當月加總數字） */}
                                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
                                         <h3 className="text-lg font-bold text-slate-900 mb-1">
-                                            組員本期戰況對比 ({selectedMonthFilter === 'All' ? '全期數據' : `${selectedMonthFilter} 最新一週`})
+                                            組員本期戰況對比 ({selectedMonthFilter === 'All' ? '全期加總' : `${selectedMonthFilter} 累計總額`})
                                         </h3>
-                                        <p className="text-xs text-slate-500 mb-6">比較各個組員當月的實際裝機量、KPI 達成與系統精算、排除水庫的累計成交間數</p>
+                                        <p className="text-xs text-slate-500 mb-6">已自動聚合：比較同仁在 {selectedMonthFilter} 的「裝機實績加總、目標 KPI 加總與實質累計總成交量」</p>
                                         
                                         {memberPerformanceData.length === 0 ? (
                                             <div className="p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-xl">
-                                                本月份暫無對比數據，請在左方切換月份或補登錄。
+                                                本月份暫無可對比的累計數據，請切換月份或在左側進行補登。
                                             </div>
                                         ) : (
                                             <div className="h-64 w-full">
@@ -1129,9 +1164,9 @@
                                                         <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} />
                                                         <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderRadius: '12px', border: 'none', color: '#fff' }} />
                                                         <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '12px' }} />
-                                                        <Bar dataKey="實際裝機" fill="#4f46e5" radius={[4, 4, 0, 0]} />
-                                                        <Bar dataKey="當週KPI" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
-                                                        <Bar dataKey="累計成交" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                                                        <Bar dataKey="實際裝機" fill="#4f46e5" name="已裝機實績" radius={[4, 4, 0, 0]} />
+                                                        <Bar dataKey="當週KPI" fill="#cbd5e1" name="累積 KPI 目標" radius={[4, 4, 0, 0]} />
+                                                        <Bar dataKey="累計成交" fill="#f43f5e" name="累計成交 (不含水庫)" radius={[4, 4, 0, 0]} />
                                                     </BarChart>
                                                 </ResponsiveContainer>
                                             </div>
@@ -1140,76 +1175,156 @@
                                 </div>
                             )}
 
-                            {/* 全隊數據明細總表 */}
+                            {/* 全隊數據明細（內建：明細與聚合統整雙模式） */}
                             {activeTab === 'dataTable' && (
                                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
-                                    <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                                    <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                         <div>
-                                            <h3 className="text-lg font-bold text-slate-900">組員歷史填報明細總表</h3>
-                                            <p className="text-xs text-slate-500">所有登錄數據的完整列表 (本月累計成交已全面採用高精準隔離算法，且排空未裝機庫存)</p>
+                                            <h3 className="text-lg font-bold text-slate-900">
+                                                {tableMode === 'detail' ? '組員歷史填報明細總表' : '組員月度業績統整報表'}
+                                            </h3>
+                                            <p className="text-xs text-slate-500">
+                                                {tableMode === 'detail' 
+                                                    ? '檢視所有人上傳的每一期週報明細（累計成交已實施月份完全隔離，不含水庫）' 
+                                                    : '智慧聚合統計：自動按業務與月份進行總加總，不顯示重複的零散申報。'}
+                                            </p>
                                         </div>
-                                        <div className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full font-medium">
-                                            共計 {computedEntries.length} 筆提交
+                                        
+                                        {/* 明細 / 統整雙模切換開關 */}
+                                        <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                                            <button 
+                                                onClick={() => setTableMode('detail')} 
+                                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                                                    tableMode === 'detail' 
+                                                        ? 'bg-slate-900 text-white shadow-sm' 
+                                                        : 'text-slate-500 hover:text-slate-800'
+                                                }`}
+                                            >
+                                                週報明細
+                                            </button>
+                                            <button 
+                                                onClick={() => setTableMode('summary')} 
+                                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                                                    tableMode === 'summary' 
+                                                        ? 'bg-slate-900 text-white shadow-sm' 
+                                                        : 'text-slate-500 hover:text-slate-800'
+                                                }`}
+                                            >
+                                                組員月度統整 (加總)
+                                            </button>
                                         </div>
                                     </div>
 
-                                    {computedEntries.length === 0 ? (
-                                        <div className="p-16 text-center text-slate-400">
-                                            <Icons.ClipboardList />
-                                            <p className="font-semibold mt-2">目前尚無數據明細</p>
-                                            <p className="text-xs mt-1">請利用左側表單為業務輸入第一筆數據。</p>
-                                        </div>
-                                    ) : (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left border-collapse text-xs">
-                                                <thead>
-                                                    <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-100">
-                                                        <th className="p-4">業務/週期</th>
-                                                        <th className="p-4 text-center">本週裝機</th>
-                                                        <th className="p-4 text-center">下週預計</th>
-                                                        <th className="p-4 text-center">未裝庫存</th>
-                                                        <th className="p-4 text-center text-rose-600 font-bold bg-rose-50/30">本月累計成交 (已排除跨月與未裝庫存)</th>
-                                                        <th className="p-4 text-center">KPI(週目標/累計)</th>
-                                                        <th className="p-4 text-center">操作</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-100">
-                                                    {computedEntries.map((item) => (
-                                                        <tr key={item.id} className="hover:bg-slate-50/80 transition">
-                                                            <td className="p-4 font-semibold">
-                                                                <span className="text-slate-900 block text-sm">{item.name}</span>
-                                                                <span className="text-slate-500 text-[10px] bg-slate-100 px-1.5 py-0.5 rounded inline-block mt-1 font-mono font-medium">{item.week}</span>
-                                                            </td>
-                                                            <td className="p-4 text-center">
-                                                                <span className="bg-indigo-50 text-indigo-800 px-2 py-1 rounded font-bold">{item.install}</span>
-                                                            </td>
-                                                            <td className="p-4 text-center">
-                                                                <span className="bg-emerald-50 text-emerald-800 px-2 py-1 rounded font-bold">{item.nextInstall}</span>
-                                                            </td>
-                                                            <td className="p-4 text-center text-amber-700 font-bold bg-amber-50/20">{item.pending}</td>
-                                                            <td className="p-4 text-center text-rose-600 font-extrabold bg-rose-50/40">{item.totalDeals}</td>
-                                                            <td className="p-4 text-center text-slate-500">
-                                                                {item.kpi} / <span className="font-semibold text-slate-800">{item.cumulativeKpi}</span>
-                                                            </td>
-                                                            <td className="p-4 text-center">
-                                                                <button
-                                                                    onClick={() => handleDeleteEntry(item.id)}
-                                                                    className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition"
-                                                                    title="刪除此筆記錄"
-                                                                >
-                                                                    <Icons.Trash2 />
-                                                                </button>
-                                                            </td>
+                                    {/* 1. 詳細明細表格 */}
+                                    {tableMode === 'detail' && (
+                                        computedEntries.length === 0 ? (
+                                            <div className="p-16 text-center text-slate-400">
+                                                <Icons.ClipboardList />
+                                                <p className="font-semibold mt-2">目前尚無數據明細</p>
+                                                <p className="text-xs mt-1">請利用左側表單輸入第一筆數據。</p>
+                                            </div>
+                                        ) : (
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left border-collapse text-xs">
+                                                    <thead>
+                                                        <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-100">
+                                                            <th className="p-4">業務/週期</th>
+                                                            <th className="p-4 text-center">本週裝機</th>
+                                                            <th className="p-4 text-center">下週預計</th>
+                                                            <th className="p-4 text-center">未裝庫存</th>
+                                                            <th className="p-4 text-center text-rose-600 font-bold bg-rose-50/30">本月累計總成交 (月度隔離)</th>
+                                                            <th className="p-4 text-center">KPI(週目標/累積)</th>
+                                                            <th className="p-4 text-center">操作</th>
                                                         </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-100">
+                                                        {computedEntries.map((item) => (
+                                                            <tr key={item.id} className="hover:bg-slate-50/80 transition">
+                                                                <td className="p-4 font-semibold">
+                                                                    <span className="text-slate-900 block text-sm">{item.name}</span>
+                                                                    <span className="text-slate-500 text-[10px] bg-slate-100 px-1.5 py-0.5 rounded inline-block mt-1 font-mono font-medium">{item.week}</span>
+                                                                </td>
+                                                                <td className="p-4 text-center">
+                                                                    <span className="bg-indigo-50 text-indigo-800 px-2 py-1 rounded font-bold">{item.install}</span>
+                                                                </td>
+                                                                <td className="p-4 text-center">
+                                                                    <span className="bg-emerald-50 text-emerald-800 px-2 py-1 rounded font-bold">{item.nextInstall}</span>
+                                                                </td>
+                                                                <td className="p-4 text-center text-amber-700 font-bold bg-amber-50/20">{item.pending}</td>
+                                                                <td className="p-4 text-center text-rose-600 font-extrabold bg-rose-50/40">{item.totalDeals}</td>
+                                                                <td className="p-4 text-center text-slate-500">
+                                                                    {item.kpi} / <span className="font-semibold text-slate-800">{item.cumulativeKpi}</span>
+                                                                </td>
+                                                                <td className="p-4 text-center">
+                                                                    <button
+                                                                        onClick={() => handleDeleteEntry(item.id)}
+                                                                        className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition"
+                                                                        title="刪除此筆記錄"
+                                                                    >
+                                                                        <Icons.Trash2 />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )
+                                    )}
+
+                                    {/* 2. 智慧統整加總表格 */}
+                                    {tableMode === 'summary' && (
+                                        summaryEntries.length === 0 ? (
+                                            <div className="p-16 text-center text-slate-400">
+                                                <p className="font-semibold">目前無任何數據可供統整統計</p>
+                                            </div>
+                                        ) : (
+                                            <div className="overflow-x-auto animate-fade-in">
+                                                <table className="w-full text-left border-collapse text-xs">
+                                                    <thead>
+                                                        <tr className="bg-slate-900 text-white font-bold">
+                                                            <th className="p-4 rounded-tl-xl">業務同仁</th>
+                                                            <th className="p-4 text-center">月份</th>
+                                                            <th className="p-4 text-center bg-indigo-900">當月裝機加總 (實績)</th>
+                                                            <th className="p-4 text-center">最新期水庫水位</th>
+                                                            <th className="p-4 text-center text-rose-300 font-bold bg-rose-950/40">當月累計成交 (已去水庫)</th>
+                                                            <th className="p-4 text-center rounded-tr-xl">累積目標 KPI 加總</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-100">
+                                                        {summaryEntries.map((g, idx) => (
+                                                            <tr key={idx} className="hover:bg-indigo-50/30 transition font-medium">
+                                                                <td className="p-4 font-bold text-slate-900 text-sm">
+                                                                    {g.name}
+                                                                </td>
+                                                                <td className="p-4 text-center font-bold">
+                                                                    <span className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-slate-700 text-[11px]">
+                                                                        {g.month}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-4 text-center text-indigo-800 font-extrabold text-sm bg-indigo-50/20">
+                                                                    {g.totalInstall} <span className="text-[10px] text-slate-400 font-normal">間</span>
+                                                                </td>
+                                                                <td className="p-4 text-center text-amber-700 font-extrabold bg-amber-50/10">
+                                                                    {g.latestPending} <span className="text-[10px] text-slate-400 font-normal">間</span>
+                                                                </td>
+                                                                <td className="p-4 text-center text-rose-600 font-black text-sm bg-rose-50/40">
+                                                                    {g.totalDeals} <span className="text-[10px] text-slate-400 font-normal">間</span>
+                                                                </td>
+                                                                <td className="p-4 text-center text-slate-500 font-bold">
+                                                                    {g.totalKpi} <span className="text-[10px] text-slate-400 font-normal">個</span>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )
                                     )}
                                 </div>
                             )}
 
-                            {/* 主管支援與卡關討論板 */}
+                            {/* 主管支援卡片頁面 */}
                             {activeTab === 'supportBoard' && (
                                 <div className="space-y-4">
                                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
@@ -1264,7 +1379,7 @@
                                 </div>
                             )}
 
-                            {/* 組員名單與管理分頁 */}
+                            {/* 成員管理分頁 */}
                             {activeTab === 'memberMgmt' && (
                                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
                                     <h3 className="text-lg font-bold text-slate-900 mb-1">團隊組員名單設定</h3>
@@ -1312,7 +1427,7 @@
                                 </div>
                             )}
 
-                            {/* 雲端資料庫設定分頁 */}
+                            {/* 雲端資料庫設定 */}
                             {activeTab === 'cloudSettings' && (
                                 <div className="space-y-6">
                                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
